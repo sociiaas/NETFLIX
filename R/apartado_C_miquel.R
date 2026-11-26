@@ -37,10 +37,9 @@ dir.create("graficos", recursive = TRUE, showWarnings = FALSE)
 # 2. CARGA Y DEPURACIÓN DE DATOS (OBSERVACIÓN TOMÁS #1: ELIMINAR REPETIDOS)
 ################################################################################
 
-netflix_raw <- read.csv(
-  "datos/netflix_churn_enhanced.csv",
-  stringsAsFactors = FALSE
-)
+library(readr)
+netflix_raw  <- read_csv("C:/Users/table/Desktop/MASTER/DECISIONS/NETFLIX/datos/netflix_churn_enhanced.csv")
+
 
 cat("=== 2. DEPURACIÓN INICIAL (OBSERVACIÓN TOMÁS #1) ===\n")
 cat("Registros originales en el CSV:", nrow(netflix_raw), "\n")
@@ -199,7 +198,7 @@ tasa_login <- round(100 * prop.table(tabla_login, 1)[, "Cancela"], 1)
 print(cbind(tabla_login, Tasa_Cancela_Pct = tasa_login))
 
 # Mediana de last_login_days por año de baja (para descartar acumulación post-baja)
-anio_baja <- format(fecha_baja[idx_canc], "%Y")
+anio_baja <- substr(as.character(netflix$churn_date[idx_canc]), 1, 4)
 mediana_por_anio <- tapply(netflix$last_login_days[idx_canc], anio_baja, median)
 cat("\nMediana de last_login_days en cancelados según año de baja:\n")
 print(mediana_por_anio)
