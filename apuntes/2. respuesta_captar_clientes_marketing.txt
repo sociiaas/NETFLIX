@@ -1,0 +1,604 @@
+############################################################
+# MAD2
+# ÁRBOLES DE DECISIÓN
+#
+# PROBLEMA
+#
+# Una empresa realiza campañas comerciales para captar
+# nuevos clientes.
+#
+# A partir de información básica sobre cada persona:
+#
+# - Nivel de ingresos
+# - Canal de contacto
+# - Historial de compras
+#
+# queremos predecir si responderá o no a la campaña.
+#
+# El objetivo es comprender:
+#
+# 1. Cómo construye un árbol de decisión sus reglas.
+# 2. Cómo implementarlo en R.
+# 3. Cómo interpretar sus resultados desde una perspectiva
+#    empresarial.
+############################################################
+
+
+############################################################
+# 1. LIMPIAR ENTORNO Y CARGAR LIBRERÍAS
+############################################################
+
+rm(list = ls())
+
+library(rpart)
+library(rpart.plot)
+library(caret)
+
+
+############################################################
+# 2. CREAR LA BASE DE DATOS
+############################################################
+
+datos <- data.frame(
+  
+  Ingresos = c(
+    "altos", "altos", "bajos", "bajos",
+    "altos", "altos", "bajos"
+  ),
+  
+  Canal_de_contacto = c(
+    "rrss", "telefono", "rrss",
+    "rrss", "rrss", "telefono",
+    "telefono"
+  ),
+  
+  Historial_de_compras = c(
+    7, 12, 18, 35, 38, 50, 83
+  ),
+  
+  Ha_respondido = c(
+    "no", "no", "si", "si",
+    "si", "no", "no"
+  )
+)
+
+datos
+
+
+############################################################
+# 3. PREPARAR LOS DATOS
+############################################################
+
+datos$Ingresos <- as.factor(datos$Ingresos)
+
+datos$Canal_de_contacto <- as.factor(
+  datos$Canal_de_contacto
+)
+
+datos$Ha_respondido <- as.factor(
+  datos$Ha_respondido
+)
+
+str(datos)
+
+
+############################################################
+# 4. CONSTRUIR EL ÁRBOL COMPLETO
+############################################################
+
+# Queremos reproducir el razonamiento que hemos realizado
+# manualmente en clase.
+#
+# Para ello permitimos que el árbol siga creciendo hasta
+# clasificar perfectamente las observaciones.
+
+arbol <- rpart(
+  
+  Ha_respondido ~
+    Ingresos +
+    Canal_de_contacto +
+    Historial_de_compras,
+  
+  data = datos,
+  
+  method = "class",
+  
+  control = rpart.control(
+    cp = 0,
+    minsplit = 1,
+    minbucket = 1,
+    maxdepth = 30
+  )
+)
+
+arbol
+
+
+############################################################
+# 5. VISUALIZAR EL ÁRBOL COMPLETO
+############################################################
+
+rpart.plot(
+  arbol,
+  type = 2,
+  extra = 104,
+  fallen.leaves = FALSE
+)
+
+############################################################
+# INTERPRETAR EL ÁRBOL
+############################################################
+
+# Cada nodo representa un grupo de observaciones.
+#
+# El algoritmo busca la variable que mejor separa las
+# respuestas "si" y "no".
+#
+# Por ejemplo:
+#
+# Historial_de_compras < 26.5
+#
+# significa:
+#
+# - Si la condición es verdadera, seguimos la rama izquierda.
+# - Si la condición es falsa, seguimos la rama derecha.
+#
+#
+# La información mostrada en cada nodo suele incluir:
+#
+# --------------------------------------------------------
+# Clase predicha
+# --------------------------------------------------------
+#
+# Indica cuál es la respuesta más frecuente en ese nodo.
+#
+# Ejemplo:
+#
+# no
+#
+# significa que la mayoría de las observaciones presentes
+# en ese nodo no respondieron a la campaña.
+#
+#
+# --------------------------------------------------------
+# Probabilidad
+# --------------------------------------------------------
+#
+# Algunos gráficos muestran algo parecido a:
+#
+#           no
+#         0.75
+#
+# Esto significa que el 75% de las observaciones del nodo
+# pertenecen a la categoría "no".
+#
+#
+# --------------------------------------------------------
+# Número de observaciones
+# --------------------------------------------------------
+#
+# Algunos gráficos muestran:
+#
+#          4/3
+#
+# Lo que significa:
+#
+# 4 observaciones de la categoría "no"
+# 3 observaciones de la categoría "si"
+#
+#
+# --------------------------------------------------------
+# Nodos hoja
+# --------------------------------------------------------
+#
+# Los nodos terminales representan reglas de negocio.
+#
+# Ejemplo:
+#
+# "Clientes con pocas compras previas tienen baja
+# probabilidad de responder".
+#
+# Cada hoja puede interpretarse como un segmento de
+# clientes con comportamiento similar.
+#
+#
+# Pregunta para discutir:
+#
+# ¿Reconocemos las mismas divisiones que obtuvimos
+# cuando construimos el árbol manualmente?
+
+
+############################################################
+# 6. EL PROBLEMA DEL SOBREAJUSTE
+############################################################
+
+# El árbol anterior intenta clasificar perfectamente
+# los datos disponibles.
+#
+# Esto puede generar sobreajuste:
+#
+# el árbol aprende los casos observados pero puede
+# comportarse peor con nuevos clientes.
+#
+# Para evitarlo dejamos que R aplique automáticamente
+# su procedimiento de poda.
+
+arbol_podado <- rpart(
+  
+  Ha_respondido ~
+    Ingresos +
+    Canal_de_contacto +
+    Historial_de_compras,
+  
+  data = datos,
+  
+  method = "class"
+)
+
+
+############################################################
+# 7. VISUALIZAR EL ÁRBOL PODADO
+############################################################
+
+rpart.plot(
+  arbol_podado,
+  type = 2,
+  extra = 104,
+  fallen.leaves = TRUE
+)
+
+############################################################
+# INTERPRETACIÓN
+############################################################
+
+# Comparar:
+#
+# - Árbol completo
+# - Árbol podado
+#
+# Preguntas:
+#
+# 1. ¿Qué ramas han desaparecido?
+#
+# 2. ¿Cuál es más fácil de interpretar?
+#
+# 3. ¿Cuál creéis que generalizará mejor para nuevos
+#    clientes?
+#
+# Esta es una de las ideas más importantes de los árboles:
+#
+# Un modelo más complejo no siempre implica mejores
+# predicciones futuras.
+
+
+############################################################
+# 8. PREDICCIÓN PARA UN NUEVO CLIENTE
+############################################################
+
+nuevo_cliente <- data.frame(
+  
+  Ingresos = factor(
+    "altos",
+    levels = levels(datos$Ingresos)
+  ),
+  
+  Canal_de_contacto = factor(
+    "rrss",
+    levels = levels(datos$Canal_de_contacto)
+  ),
+  
+  Historial_de_compras = 15
+)
+
+nuevo_cliente
+
+
+############################################################
+# 9. PREDICCIÓN DE CLASE
+############################################################
+
+prediccion <- predict(
+  arbol,
+  nuevo_cliente,
+  type = "class"
+)
+
+prediccion
+
+############################################################
+# INTERPRETACIÓN
+############################################################
+
+# El modelo clasifica al nuevo cliente como:
+#
+# "si" o "no".
+#
+# Esta predicción se obtiene siguiendo las reglas del árbol
+# desde el nodo raíz hasta una hoja final.
+
+
+############################################################
+# 10. PROBABILIDADES DE RESPUESTA
+############################################################
+
+predict(
+  arbol,
+  nuevo_cliente,
+  type = "prob"
+)
+
+############################################################
+# INTERPRETACIÓN
+############################################################
+
+# Además de la clasificación final, el árbol puede
+# proporcionar probabilidades.
+#
+# Ejemplo:
+#
+#      no     si
+#    0.25  0.75
+#
+# significa:
+#
+# P(no) = 25%
+# P(si) = 75%
+#
+# El modelo predice "si" porque es la categoría con
+# mayor probabilidad.
+#
+# Las probabilidades son especialmente útiles para
+# priorizar acciones comerciales.
+
+
+############################################################
+# 11. PREDECIR VARIOS CLIENTES
+############################################################
+
+nuevos_clientes <- data.frame(
+  
+  Ingresos = factor(
+    c("altos", "bajos", "altos",
+      "bajos", "altos"),
+    
+    levels = levels(datos$Ingresos)
+  ),
+  
+  Canal_de_contacto = factor(
+    c("rrss", "telefono", "telefono",
+      "rrss", "telefono"),
+    
+    levels = levels(datos$Canal_de_contacto)
+  ),
+  
+  Historial_de_compras = c(
+    5, 22, 45, 60, 75
+  )
+)
+
+nuevos_clientes
+
+
+############################################################
+# 12. GENERAR PREDICCIONES
+############################################################
+
+predicciones <- predict(
+  arbol,
+  nuevos_clientes,
+  type = "class"
+)
+
+nuevos_clientes$Prediccion <- predicciones
+
+nuevos_clientes
+
+
+############################################################
+# 13. RESPUESTAS OBSERVADAS
+############################################################
+
+# Supongamos que posteriormente observamos qué clientes
+# respondieron realmente.
+
+nuevos_clientes$Ha_respondido <- factor(
+  c("no", "si", "no", "si", "no"),
+  levels = levels(datos$Ha_respondido)
+)
+
+nuevos_clientes
+
+
+############################################################
+# 14. MATRIZ DE CONFUSIÓN
+############################################################
+
+cm <- confusionMatrix(
+  data = nuevos_clientes$Prediccion,
+  reference = nuevos_clientes$Ha_respondido,
+  positive = "si"
+)
+
+cm
+
+
+############################################################
+# INTERPRETACIÓN DE LA MATRIZ DE CONFUSIÓN
+############################################################
+
+# La matriz de confusión compara:
+#
+# - Lo que predijo el modelo.
+# - Lo que ocurrió realmente.
+#
+#
+#                     REAL
+#
+# PREDICHO         no      si
+#
+# no              TN      FN
+#
+# si              FP      TP
+#
+#
+# TP = True Positive
+#
+# El cliente respondió y el modelo lo predijo correctamente.
+#
+#
+# TN = True Negative
+#
+# El cliente no respondió y el modelo lo predijo
+# correctamente.
+#
+#
+# FP = False Positive
+#
+# El modelo predijo respuesta positiva,
+# pero el cliente no respondió.
+#
+#
+# FN = False Negative
+#
+# El modelo predijo respuesta negativa,
+# pero el cliente sí respondió.
+#
+#
+# Desde una perspectiva empresarial:
+#
+# Los falsos positivos generan costes innecesarios.
+#
+# Los falsos negativos implican perder oportunidades
+# comerciales.
+
+
+############################################################
+# 15. ACCURACY
+############################################################
+
+cm$overall["Accuracy"]
+
+############################################################
+# INTERPRETACIÓN
+############################################################
+
+# Accuracy =
+#
+# Número de predicciones correctas
+# --------------------------------
+# Número total de observaciones
+#
+#
+# Ejemplo:
+#
+# Accuracy = 0.80
+#
+# significa que el modelo clasifica correctamente
+# el 80% de los clientes.
+#
+#
+# Limitación:
+#
+# Una accuracy elevada no garantiza necesariamente
+# un buen modelo.
+#
+# Si el 95% de los clientes no responden,
+# predecir siempre "no" produciría una accuracy
+# cercana al 95%.
+#
+# Por ello conviene analizar métricas adicionales.
+
+
+############################################################
+# 16. SENSITIVITY (RECALL)
+############################################################
+
+cm$byClass["Sensitivity"]
+
+############################################################
+# INTERPRETACIÓN
+############################################################
+
+# Sensitivity =
+#
+# TP / (TP + FN)
+#
+#
+# Mide la capacidad del modelo para detectar
+# correctamente a las personas que responderán.
+#
+#
+# Ejemplo:
+#
+# Sensitivity = 0.80
+#
+# significa que el modelo identifica correctamente
+# el 80% de los clientes que realmente responderán.
+#
+#
+# Desde una perspectiva empresarial:
+#
+# Una baja sensibilidad implica perder clientes
+# potencialmente interesantes.
+
+
+############################################################
+# 17. SPECIFICITY
+############################################################
+
+cm$byClass["Specificity"]
+
+############################################################
+# INTERPRETACIÓN
+############################################################
+
+# Specificity =
+#
+# TN / (TN + FP)
+#
+#
+# Mide la capacidad del modelo para identificar
+# correctamente a quienes NO responderán.
+#
+#
+# Ejemplo:
+#
+# Specificity = 0.90
+#
+# significa que el modelo detecta correctamente
+# el 90% de los clientes que no responderán.
+#
+#
+# Desde una perspectiva comercial:
+#
+# Una alta especificidad ayuda a evitar gastar
+# recursos en personas con poca probabilidad
+# de responder.
+
+
+############################################################
+# CONCLUSIÓN EMPRESARIAL
+############################################################
+
+# Los árboles de decisión transforman los datos en reglas
+# simples y fáciles de interpretar.
+#
+# Por ejemplo:
+#
+# "Si el historial de compras supera cierto valor,
+# la probabilidad de respuesta aumenta."
+#
+# Estas reglas permiten:
+#
+# - Segmentar clientes.
+# - Priorizar campañas.
+# - Optimizar recursos comerciales.
+# - Justificar decisiones basadas en datos.
+#
+# La principal ventaja de los árboles de decisión es su
+# interpretabilidad.
+#
+# A diferencia de otros algoritmos más complejos,
+# podemos explicar fácilmente por qué el modelo genera
+# cada predicción.
+############################################################

@@ -1,0 +1,11 @@
+# Crear un vector de proporciones de VERDADERO
+p_v <- seq(0, 1, by = 0.1)
+
+# La proporción de FALSO es complementaria
+p_f <- 1 - p_v
+
+# Calcular la impureza de Gini
+gini <- 1 - p_v^2 - p_f^2
+
+# Graficar
+plot(p_v, gini, type = "l")

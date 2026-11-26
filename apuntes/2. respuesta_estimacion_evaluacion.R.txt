@@ -1,0 +1,38 @@
+############################################################
+# MAD2
+# COMO CREAR UN GRUPO DE ESTIMACIÓN Y OTRO DE EVALUACIÓ
+# USANDO LOS DATOS DE SPOTIFY SPORT
+############################################################
+
+############################################################
+# 1. CARGAR DATOS
+############################################################
+
+spotify <- read.csv("spotify_sport.csv")
+
+glimpse(spotify)
+
+############################################################
+# 2. CREAR GRUPO DE ESTIMACIÓN Y EVALUACIÓN
+############################################################
+
+# Utilizamos:
+#
+# 70% para construir el árbol (grupo de estimación)
+# 30% para evaluarlo (grupo de evaluación)
+
+set.seed(123) # Como la selección de observaciones es aleatoria, esto genera siempre los mismos números aleatorios, y favorece la reproducibilidad.
+
+train_index <- sample(
+  1:nrow(spotify),
+  size = 0.7 * nrow(spotify)
+)
+
+train <- spotify[train_index, ]
+
+test <- spotify[-train_index, ]
+
+# Explora qué está haciendo exactamente la función "sample",
+# variando los parámetros y explorando su efecto en el resultado.
+#
+# ¿Qué hace "nrow"?
