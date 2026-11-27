@@ -1,13 +1,13 @@
 ################################################################################
 # TRABAJO FINAL DECISIONES EMPRESARIALES — NETFLIX (REDUCCIÓN DE CHURN)
-# APARTADO C: APLICACIÓN DE LA TEORÍA (MIQUEL — SUBAPARTADOS C.1, C.2 y C.3)
+# APARTADO C: APLICACIÓN DE LA TEORÍA (MIQUEL — SUBAPARTADOS C.1, C.2, C.3 y C.4)
 #
 # Alcance estricto:
 #   - C.1. Árboles de decisión (modelo principal, sensibilidad y predicción)
 #   - C.2. Impureza de Gini (fórmula, curva teórica y selección del nodo raíz)
 #   - C.3. Sobreajuste (partición 70/30, estimación vs. evaluación, poda)
+#   - C.4. Matriz de confusión (aciertos y errores, Accuracy, Sensitivity y Specificity)
 #   - Aplicación obligatoria de las 4 "Observacions Tomas"
-#   - EXCLUIDO C.4 (Matriz de confusión: Sensitivity, Specificity -> Persona 4)
 #
 # Metodología estricta según /apuntes:
 #   - Librerías exclusivas: rpart, rpart.plot y R base
@@ -765,6 +765,152 @@ legend(
   lwd = 3,
   bty = "n",
   cex = 0.95
+)
+
+dev.off()
+
+################################################################################
+# 10. C.4. MATRIZ DE CONFUSIÓN (ACIERTOS, ERRORES Y MÉTRICAS DE CLASIFICACIÓN)
+################################################################################
+
+cat("\n=== 10. C.4. MATRIZ DE CONFUSIÓN (MODELO PRINCIPAL PODADO) ===\n")
+
+# Predicciones de clase sobre evaluación (30%, n = 3,600) y estimación (70%, n = 8,400)
+pred_eval  <- predict(arbol_principal, test_modelo, type = "class")
+pred_estim <- predict(arbol_principal, train_modelo, type = "class")
+
+# Matriz de confusión (Predicho en filas, Real en columnas; positiva = "Cancela")
+matriz_eval <- table(Predicho = pred_eval, Real = test_modelo$churned_f)
+matriz_estim <- table(Predicho = pred_estim, Real = train_modelo$churned_f)
+
+if (requireNamespace("caret", quietly = TRUE)) {
+  cm_eval <- caret::confusionMatrix(
+    data = pred_eval,
+    reference = test_modelo$churned_f,
+    positive = "Cancela"
+  )
+  cat("\nResultado completo caret::confusionMatrix (Grupo de Evaluación, 30%):\n")
+  print(cm_eval)
+} else {
+  cat("\nMatriz de confusión (Grupo de Evaluación, 30%, n = 3,600):\n")
+  print(matriz_eval)
+}
+
+# Extracción de celdas (TN, FN, FP, TP) y cálculo de métricas en Evaluación (30%)
+TN <- as.numeric(matriz_eval["Continua", "Continua"])
+FN <- as.numeric(matriz_eval["Continua", "Cancela"])
+FP <- as.numeric(matriz_eval["Cancela", "Continua"])
+TP <- as.numeric(matriz_eval["Cancela", "Cancela"])
+N_eval <- sum(matriz_eval)
+
+acc_eval  <- (TP + TN) / N_eval
+sens_eval <- TP / (TP + FN)   # Sensitivity / Recall: TP / (TP + FN)
+spec_eval <- TN / (TN + FP)   # Specificity: TN / (TN + FP)
+prec_eval <- TP / (TP + FP)   # Precision / Pos Pred Value
+npv_eval  <- TN / (TN + FN)   # Neg Pred Value
+
+cat("\nDesglose de aciertos y errores (Evaluación, n = 3,600):\n")
+cat(sprintf("  TN (Continúan bien clasificados)              : %d (%.1f%%)\n", TN, 100 * TN / N_eval))
+cat(sprintf("  TP (Cancelaciones correctamente identificadas): %d (%.1f%%)\n", TP, 100 * TP / N_eval))
+cat(sprintf("  FN (Cancelaciones no detectadas)              : %d (%.1f%%)\n", FN, 100 * FN / N_eval))
+cat(sprintf("  FP (Falsas alarmas de cancelación)            : %d (%.1f%%)\n", FP, 100 * FP / N_eval))
+
+cat("\nMétricas de evaluación (Evaluación, 30%):\n")
+cat(sprintf("  Accuracy (Acierto global)      : %.4f (%.2f%%)\n", acc_eval, 100 * acc_eval))
+cat(sprintf("  Sensitivity (Recall)           : %.4f (%.2f%%)\n", sens_eval, 100 * sens_eval))
+cat(sprintf("  Specificity                    : %.4f (%.2f%%)\n", spec_eval, 100 * spec_eval))
+cat(sprintf("  Precision (Pos Pred Value)     : %.4f (%.2f%%)\n", prec_eval, 100 * prec_eval))
+cat(sprintf("  Neg Pred Value                 : %.4f (%.2f%%)\n", npv_eval, 100 * npv_eval))
+
+# Comparativa breve en Estimación (70%)
+TN_tr <- as.numeric(matriz_estim["Continua", "Continua"])
+FN_tr <- as.numeric(matriz_estim["Continua", "Cancela"])
+FP_tr <- as.numeric(matriz_estim["Cancela", "Continua"])
+TP_tr <- as.numeric(matriz_estim["Cancela", "Cancela"])
+cat(sprintf(
+  "\nReferencia en Estimación (70%%, n = %d): TN=%d | FN=%d | FP=%d | TP=%d | Acc=%.2f%% | Sens=%.2f%% | Spec=%.2f%%\n",
+  sum(matriz_estim), TN_tr, FN_tr, FP_tr, TP_tr,
+  100 * (TP_tr + TN_tr) / sum(matriz_estim),
+  100 * TP_tr / (TP_tr + FN_tr),
+  100 * TN_tr / (TN_tr + FP_tr)
+))
+
+# Exportar gráfico 09: Matriz de confusión y métricas de clasificación (Evaluación 30%)
+png(
+  "graficos/09_matriz_confusion.png",
+  width = 2500, height = 1200, res = 220
+)
+layout(matrix(c(1, 2), nrow = 1), widths = c(1.15, 1))
+
+# Panel A: Matriz de confusión 2x2 (Evaluación, n = 3,600)
+par(mar = c(3.8, 5.2, 4.8, 2.0))
+plot(
+  0, 0, type = "n",
+  xlim = c(0, 2), ylim = c(0, 2),
+  xaxs = "i", yaxs = "i",
+  xaxt = "n", yaxt = "n",
+  xlab = "", ylab = "",
+  bty = "n"
+)
+
+# Celdas: filas = Predicho (arriba Continua [y=1..2], abajo Cancela [y=0..1])
+#         cols  = Real (izq Continua [x=0..1], der Cancela [x=1..2])
+rect(0, 1, 1, 2, col = "#DBEAFE", border = "#FFFFFF", lwd = 4) # TN
+rect(1, 1, 2, 2, col = "#FEF3C7", border = "#FFFFFF", lwd = 4) # FN
+rect(0, 0, 1, 1, col = "#FFEDD5", border = "#FFFFFF", lwd = 4) # FP
+rect(1, 0, 2, 1, col = "#DCFCE7", border = "#FFFFFF", lwd = 4) # TP
+
+dibujar_celda <- function(cx, cy, titulo, valor, n_tot, subtitulo, col_txt) {
+  text(cx, cy + 0.28, titulo, font = 2, cex = 0.92, col = col_txt)
+  text(cx, cy + 0.02, format(valor, big.mark = ","), font = 2, cex = 1.75, col = "#0F172A")
+  text(cx, cy - 0.18, sprintf("(%.1f%% del total)", 100 * valor / n_tot), cex = 0.85, col = "#334155")
+  text(cx, cy - 0.34, subtitulo, cex = 0.78, font = 3, col = "#475569")
+}
+
+dibujar_celda(0.5, 1.5, "TN (Acierto)", TN, N_eval, "Continuan bien clasificados", "#1D4ED8")
+dibujar_celda(1.5, 1.5, "FN (Error)",   FN, N_eval, "Cancelaciones no detectadas", "#B45309")
+dibujar_celda(0.5, 0.5, "FP (Error)",   FP, N_eval, "Falsas alarmas de cancelacion", "#C2410C")
+dibujar_celda(1.5, 0.5, "TP (Acierto)", TP, N_eval, "Cancelaciones identificadas", "#15803D")
+
+axis(3, at = c(0.5, 1.5), labels = c("Real: Continua", "Real: Cancela"), tick = FALSE, cex.axis = 1.0, font = 2, line = -0.3)
+axis(2, at = c(1.5, 0.5), labels = c("Predicho:\nContinua", "Predicho:\nCancela"), tick = FALSE, las = 1, cex.axis = 0.98, font = 2, line = -0.2)
+mtext("Matriz de Confusion (Evaluacion 30%, n = 3,600)", side = 3, line = 2.6, cex = 1.12, font = 2, col = "#0F172A")
+mtext("Clase positiva: Cancela | Modelo podado (11 hojas)", side = 1, line = 1.2, cex = 0.88, col = "#475569")
+
+# Panel B: Barras horizontales de métricas de evaluación
+par(mar = c(4.8, 8.8, 4.8, 3.2))
+metricas_vals <- c(
+  "Neg Pred Value" = 100 * npv_eval,
+  "Precision (PPV)" = 100 * prec_eval,
+  "Specificity"     = 100 * spec_eval,
+  "Sensitivity"     = 100 * sens_eval,
+  "Accuracy"        = 100 * acc_eval
+)
+col_met <- c("#64748B", "#475569", "#2563EB", "#E50914", "#16A34A")
+
+bp_m <- barplot(
+  metricas_vals,
+  horiz = TRUE,
+  las = 1,
+  col = col_met,
+  border = NA,
+  xlim = c(0, 108),
+  xlab = "Porcentaje (%)",
+  main = "Metricas de Clasificacion (Evaluacion)",
+  cex.names = 0.95,
+  cex.axis = 0.95,
+  cex.lab = 1.0,
+  cex.main = 1.12
+)
+abline(v = c(70, 80, 90), lty = 3, col = "#CBD5E1")
+text(
+  x = metricas_vals + 1.8,
+  y = bp_m,
+  labels = sprintf("%.2f%%", metricas_vals),
+  adj = 0,
+  font = 2,
+  cex = 0.95,
+  col = "#0F172A"
 )
 
 dev.off()
